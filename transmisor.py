@@ -101,16 +101,8 @@ msg_lista.append(command + "\n" + SDP3)
 
 
 def send_info(NewMsg):
-    """ esto es para enviar un sap
-    msg = sap.Message()
-    msg.setSource(myaddr)
-    msg.setPayload(SDP)
-    msg.setMsgHash(1)
-        data = msg.pack()
-    """
+
     print "Sending packet"
-
-
     #sock_tx.connect(("",sap.DEF_PORT)) #TODO
     sock_tx.connect(("",4141)) #4141 puesto porque si
 
@@ -118,8 +110,6 @@ def send_info(NewMsg):
     #sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT)) # TODO
     #sock_tx.sendto(command + " " + data, (sap.DEF_ADDR, 4141)) # 4141 puesto porque si
     sock_tx.sendto(NewMsg, (sap.DEF_ADDR, 4141)) # 4141 puerto porque si
-    print "El actual\n",NewMsg
-
 
 if __name__ == "__main__":
     cont = 0
