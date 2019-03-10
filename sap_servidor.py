@@ -173,23 +173,24 @@ def New_message_rx(data):
                     return 1
 
     elif comando == "delete":
-        if comando == "add":
+        print "vamos a borrar, el tamnyo ahora es ", len(msg_list)
 
-            if len(msg_list) == 0:
-                # si la lista esta vacia no hacemos nada
-                print "No hay ningun mensaje en la lista"
-                del Newmsg
+        if len(msg_list) == 0:
+            # si la lista esta vacia no hacemos nada
+            print "No hay ningun mensaje en la lista"
+            del Newmsg
 
+        else:
+            # comprobamos si existe algun mensaje igual
+            existe, hashid, msg = check_msg(sdp, comando)
+            if existe == 0:
+                # si no existe ningun mensaje igual no hacemos nada
+                print "No existe ningun mensaje igual que Newmsg\n"
             else:
-                # comprobamos si existe algun mensaje igual
-                existe, hashid, msg = check_msg(sdp, comando)
-                if existe == 0:
-                    # si no existe ningun mensaje igual no hacemos nada
-                    print "No existe ningun mensaje igual que Newmsg\n"
-                else:
-                    print "Se ha borrado el mensaje.\n"
-                    Delete_Hash(hashid)
-                    msg_list.remove(msg)
+                print "Se ha borrado el mensaje.\n"
+                Delete_Hash(hashid)
+                msg_list.remove(msg)
+                print "despues de borrar, el tamanyo es ", len(msg_list)
                 del Newmsg
 
 
