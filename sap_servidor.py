@@ -56,17 +56,19 @@ def timeturn(t1, t2):
     return date_str
 
 #funcion para enviar info de sesiones
-def send_info():
+def send_info(comando="add", msg_delete=""):
 
-    for msg in msg_list:
+    if comando == "delete":
+        print "Sending delete SAP packet"
+        sock_tx.sendto(msg_delete, (sap.DEF_ADDR, sap.DEF_PORT)) #todo mirar si esta bien el envio
 
-        #msg = sap.Message()
-        #msg.setSource(myaddr)
-        #msg.setPayload(SDP)
-        #msg.setMsgHash(1)
-        print "Sending SAP packet"
-        data = msg.pack()
-        sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT))
+
+
+    else:
+        for msg in msg_list:
+            print "Sending SAP packet"
+            data = msg.pack()
+            sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT))
 
 
 #Lista_TX={}
@@ -94,11 +96,20 @@ def Add_Hash(): # TODO implementar poder devolver error
     else:
         print ("No hay ninguna conexion disponible.")
 
-def Delete_Hash(hash_id):
-    # Actualizamos el valor del hash id poniendolo disponible
+def Delete_Hash(hash_id, msg):
+
+    """"# Actualizamos el valor del hash id poniendolo disponible
+    msg_list.remove(msg)
+    Msg_Hash.update({hash_id:'Disponible'})
+    # todo avisar al cliente que se ha borrado"""
+
+    ###prueba
+    msg.setDeletion(True)
+    data = msg.pack()
+    send_info("delete", data)
+    msg_list.remove(msg)
     Msg_Hash.update({hash_id:'Disponible'})
     # todo avisar al cliente que se ha borrado
-
 
 def check_msg(payload, comando):
     Newmsg = sap.Message()
@@ -126,7 +137,7 @@ def check_msg(payload, comando):
 def New_message_rx(data):
     global msg_list
 
-    Newmsg = sap.Message()
+
 
     comando = data.split('\n')[0]
     # RECOGIDA DEL PAYLOAD (PARTE DEL SDP)
@@ -135,14 +146,17 @@ def New_message_rx(data):
     for i in range(1, len(data.split('\n'))):
         sdp = sdp + data.split('\n')[i] + "\n"
 
+    Newmsg = sap.Message()
+    Newmsg.setSource(myaddr)
+    Newmsg.setPayload(sdp)
+
     if comando == "add":
 
         if len(msg_list) == 0:
             # si la lista esta vacia anyadimos un hash
             hashid = Add_Hash()
-            Newmsg.setSource(myaddr)
-            Newmsg.setPayload(sdp)
             Newmsg.setMsgHash(hashid)
+
             print "msg is the first in the system\n"
             print Newmsg
             print "\n\n"
@@ -165,8 +179,6 @@ def New_message_rx(data):
                     print hashid
                     del Newmsg
                 else:
-                    Newmsg.setSource(myaddr)
-                    Newmsg.setPayload(sdp)
                     Newmsg.setMsgHash(hashid)
                     # data = Newmsg.pack() todo mirar pero creo que fuera
                     msg_list.append(Newmsg)
@@ -184,15 +196,14 @@ def New_message_rx(data):
             del Newmsg
 
         else:
-            # comprobamos si existe algun mensaje igual
+            # comprobamos si existe algun mensaje igual, devuelve el hash y el mensaje
             existe, hashid, msg = check_msg(sdp, comando)
             if existe == 0:
                 # si no existe ningun mensaje igual no hacemos nada
                 print "No existe ningun mensaje igual que Newmsg\n"
             else:
                 print "Se ha borrado el mensaje.\n"
-                Delete_Hash(hashid)
-                msg_list.remove(msg)
+                Delete_Hash(hashid, msg)
                 print "despues de borrar, el tamanyo es ", len(msg_list)
                 del Newmsg
 
@@ -434,19 +445,6 @@ if __name__ == "__main__":
 
             else:
                 print "No hay ningun paquete para enviar. \n"
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
         """

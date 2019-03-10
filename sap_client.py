@@ -17,14 +17,15 @@ if __name__ == "__main__":
         data = sock.recv(4096)
         msg = sap.Message()
         msg.unpack(data)
+
         #print "Received SAP:\n", msg
 
         # si la lista esta vacia se anyade automaticamente
         if len(msg_lista) ==0:
             msg_lista.append(msg)
 
-
         else:
+
             #se comprueba si existe el mensaje
             exist = False
             for ms in msg_lista:
@@ -32,7 +33,17 @@ if __name__ == "__main__":
                     # si existe el mensaje no se anyadira
                     exist = True
                     print "Ya existe el mensaje"
+
+
+                    # todo probando para poder borrar en el cliente
+                    # deberia ver si tiene el delete diferente para poder borrarlo
+                    if ms.__eq2__(msg):
+                        # si existe un mensaje igual se retorna un 1
+                        print "Es un mensaje igual, no actuaria"
+                    else:
+                        print "Esta marcado el delete, se borra"
                     break
+
             if exist == False:
                 # si no existe ningun paquete igual se anyade
                 print "Mensaje anyadido"

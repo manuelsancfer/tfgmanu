@@ -254,9 +254,17 @@ class Message:
                  (self._msg_hash == other._msg_hash) & \
                  (self._src_ip == other._src_ip) & \
                  (self._payload == other._payload) & \
-                 (self._deletion == other._deletion) & \
                  (self._compress == other._compress)
         return result
+    # (self._deletion == other._deletion) & \
+
+    def __eq2__(self, other):
+        result = (self._deletion == other._deletion)
+
+        return result
+
+    def __ne2__(self, other):
+        return not self.__eq2__(self, other)
 
     def __ne__(self, other):
         return not self.__eq__(self, other)
