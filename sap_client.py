@@ -3,6 +3,8 @@ import sap
 import socket
 import struct
 
+msg_lista = []
+
 if __name__ == "__main__":
     # Perpare the socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -15,4 +17,29 @@ if __name__ == "__main__":
         data = sock.recv(4096)
         msg = sap.Message()
         msg.unpack(data)
-        print "Received SAP:\n", msg
+        #print "Received SAP:\n", msg
+
+        # si la lista esta vacia se anyade automaticamente
+        if len(msg_lista) ==0:
+            msg_lista.append(msg)
+
+
+        else:
+            #se comprueba si existe el mensaje
+            exist = False
+            for ms in msg_lista:
+                if ms==msg:
+                    # si existe el mensaje no se anyadira
+                    exist = True
+                    print "Ya existe el mensaje"
+                    break
+            if exist == False:
+                # si no existe ningun paquete igual se anyade
+                print "Mensaje anyadido"
+                msg_lista.append(msg)
+        print "Ready"
+        for m in msg_lista:
+            print "El contenido de lista ", m
+        print "longitud lista", len(msg_lista)
+
+

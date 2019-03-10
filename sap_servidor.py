@@ -57,13 +57,16 @@ def timeturn(t1, t2):
 
 #funcion para enviar info de sesiones
 def send_info():
-    msg = sap.Message()
-    msg.setSource(myaddr)
-    msg.setPayload(SDP)
-    msg.setMsgHash(1)
-    print "Sending SAP packet"
-    data = msg.pack()
-    sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT))
+
+    for msg in msg_list:
+
+        #msg = sap.Message()
+        #msg.setSource(myaddr)
+        #msg.setPayload(SDP)
+        #msg.setMsgHash(1)
+        print "Sending SAP packet"
+        data = msg.pack()
+        sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT))
 
 
 #Lista_TX={}
@@ -283,7 +286,7 @@ if __name__ == "__main__":
 
 
         readable, writable, exceptional = select.select(inputs, inputs, [], time_out)
-
+        print "el time out es ", time_out
         time_hasta_ahora = (datetime.datetime.now()-time_principio).seconds
         time_finish_out = datetime.datetime.now() + datetime.timedelta(seconds=time_hasta_ahora)
         # Envio permite saber si el time_out ya ha acabado
@@ -420,19 +423,17 @@ if __name__ == "__main__":
             else:
                 send_info()"""
 
-
-        if not (readable or writable or exceptional or envio==True):
-            # timeout
+        # todo quitar el envio=True cuando se hagan pruebas reales
+        envio = True
+        if not (readable or writable or exceptional) or envio==True:
             print "timeout agotado"
 
             if len(msg_list) != 0:
                 send_info()
                 time_out = Recalcular()
-                print time_out
 
             else:
                 print "No hay ningun paquete para enviar. \n"
-                print time_out
 
 
 

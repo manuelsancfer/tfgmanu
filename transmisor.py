@@ -92,8 +92,8 @@ command2 = "delete"
 
 msg_lista = []
 
-msg_lista.append(command2 + "\n" + SDP)
-msg_lista.append(command2 + "\n" + SDP)
+msg_lista.append(command + "\n" + SDP)
+msg_lista.append(command + "\n" + SDP)
 msg_lista.append(command + "\n" + SDP_)
 msg_lista.append(command + "\n" + SDP2)
 msg_lista.append(command + "\n" + SDP3)
@@ -126,5 +126,5 @@ if __name__ == "__main__":
                 print "No se ha podido conectar al servidor 0"
             time.sleep(5)
         print "Se han enviado los paquetes de la lista"
-        time.sleep(20)
+        time.sleep(5)
 
