@@ -94,7 +94,7 @@ msg_lista = []
 
 msg_lista.append(command + "\n" + SDP)
 msg_lista.append(command2 + "\n" + SDP)
-msg_lista.append(command + "\n" + SDP_)
+msg_lista.append(command+ "\n" + SDP_)
 msg_lista.append(command + "\n" + SDP2)
 msg_lista.append(command + "\n" + SDP3)
 #print command

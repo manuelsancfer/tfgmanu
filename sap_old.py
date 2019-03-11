@@ -85,48 +85,13 @@ class Message:
     _ENCRYPTED = 0x01 << _ENCRYPTION
     _COMPRESSED = 0x01 << _COMPRESSION
 
-    def __init__(self, msg_hash=0, src_ip=(socket.AF_INET, "0.0.0.0"), deletion=False, compression=False,
-                 average=0, num_intervalo=0, last_timestamp = 0, tot_time_interval=0):
+    def __init__(self, msg_hash=0, src_ip=(socket.AF_INET, "0.0.0.0"), deletion=False, compression=False):
         self._payload_type = "application/sdp"
         self._msg_hash = msg_hash
         self._src_ip = src_ip
         self._payload = ""
         self._deletion = deletion
         self._compress = False
-        self._average_time = average
-        self._num_intervalo = num_intervalo
-        self._last_timestamp = last_timestamp
-        self._tot_time_interval = tot_time_interval
-
-    def setLast_timestamp(self, new_time):
-        if self._last_timestamp == 0:
-            self._num_intervalo = 1
-            self._last_timestamp = new_time
-            print "inicializa", new_time
-
-        else:
-            intervalo = new_time - self._last_timestamp
-            print " el intervalo es", intervalo
-            # se guarda la hora del ultimo paquete recibido
-            self._last_timestamp = new_time
-            self._average_time = (intervalo + self._tot_time_interval) / self._num_intervalo
-            # se suma despues el nuevo paquete y se calcula el tiempo total entre intervalos
-            self._tot_time_interval = self._average_time * self._num_intervalo
-            self._num_intervalo = self._num_intervalo + 1
-            print " el numero del paquete es ", self._num_intervalo
-
-
-    def intervalPacket(self, new_time):
-        interval = new_time - self._last_timestamp
-        if self._average_time != 0:
-
-            if interval/self._average_time > 10 or interval/self._average_time > 3600:
-                # si es mas grande devolvemos 1 para borrar el paquete
-                return 1
-            else:
-                return 0
-        else:
-            return 0
 
     def setSource(self, ip_string, address_family=socket.AF_INET):
         self._src_ip = (address_family, ip_string)
@@ -190,9 +155,6 @@ class Message:
         self._compress = (fbyte & self._COMPRESSED) != 0x00
         self._deletion = (fbyte & self._DELETION) != 0x00
 
-        #self._last_timestamp = self._last_timestamp
-        #self._average_time = self._average_time
-
         if (fbyte & self._IPV6_ADDR) != 0x00:
             ip_type = socket.AF_INET6
             ip_data = data[4:20]  # TODO: How do we unpack this?
@@ -250,8 +212,6 @@ class Message:
             fbyte = fbyte | self._DELETION
         else:
             fbyte = fbyte & ~(self._DELETION)
-        self._average_time = ""
-        self._last_timestamp = ""
 
         # If we have an encryptor, use it
         if callable(encryptor):
@@ -308,9 +268,6 @@ class Message:
 
     def __ne__(self, other):
         return not self.__eq__(self, other)
-
-    def gettime(self):
-        return self._last_timestamp
 
 
 if __name__ == "__main__":
