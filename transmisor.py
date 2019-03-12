@@ -124,7 +124,7 @@ if __name__ == "__main__":
                 print "Enviado el paquete\n", msg
             except:
                 print "No se ha podido conectar al servidor 0"
-            time.sleep(5)
+            time.sleep(10)
         print "Se han enviado los paquetes de la lista"
-        time.sleep(5)
+        time.sleep(10)
 
