@@ -86,7 +86,7 @@ class Message:
     _COMPRESSED = 0x01 << _COMPRESSION
 
     def __init__(self, msg_hash=0, src_ip=(socket.AF_INET, "0.0.0.0"), deletion=False, compression=False,
-                 average=0, num_intervalo=0, last_timestamp = 0, tot_time_interval=0):
+                 average=0, interval_number=0, last_timestamp = 0, total_interval_time=0):
         self._payload_type = "application/sdp"
         self._msg_hash = msg_hash
         self._src_ip = src_ip
@@ -94,26 +94,26 @@ class Message:
         self._deletion = deletion
         self._compress = False
         self._average_time = average
-        self._num_intervalo = num_intervalo
+        self._interval_number = interval_number
         self._last_timestamp = last_timestamp
-        self._tot_time_interval = tot_time_interval
+        self._total_interval_time = total_interval_time
 
     def setLast_timestamp(self, new_time):
         if self._last_timestamp == 0:
-            self._num_intervalo = 1
+            self._interval_number = 1
             self._last_timestamp = new_time
             print "inicializa", new_time
 
         else:
-            intervalo = new_time - self._last_timestamp
-            print " el intervalo es", intervalo
+            interval = new_time - self._last_timestamp
+            print " el intervalo es", interval
             # se guarda la hora del ultimo paquete recibido
             self._last_timestamp = new_time
-            self._average_time = (intervalo + self._tot_time_interval) / self._num_intervalo
+            self._average_time = (interval + self._total_interval_time) / self._interval_number
             # se suma despues el nuevo paquete y se calcula el tiempo total entre intervalos
-            self._tot_time_interval = self._average_time * self._num_intervalo
-            self._num_intervalo = self._num_intervalo + 1
-            print " el numero del paquete es ", self._num_intervalo
+            self._total_interval_time = self._average_time * self._interval_number
+            self._interval_number = self._interval_number + 1
+            print " el numero del paquete es ", self._interval_number
 
 
     def intervalPacket(self, new_time):

@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 
 import sap
 import socket
@@ -7,6 +7,10 @@ import select
 import struct
 import datetime
 
+
+###########
+##ERRORES##
+###########
 
 
 ###################################
@@ -25,67 +29,82 @@ gnu_puerto= ""
 gnu_tipo_datos= ""
 gnu_satelite= ""
 
+SDP = """\
 
-SDP = """v=0
-o=mhandley 2890844526 2890842807 IN IP4 126.16.64.4
-s=SDP Seminar
-i=A Seminar on the session description protocol
-u=http://www.cs.ucl.ac.uk/staff/M.Handley/sdp.03.ps
+v=0
+o=mhandley 2890844526 2890842807 IN IP4 tgs.upc.edu
+s=OSCAR-7i
+i=OSCAR-7 data multicasting
+u=http://tgs.upc.edu/oscar7
 e=mjh@isi.edu (Mark Handley)
-c=IN IP4 224.2.17.12/127
-
-t=2873397496 2873404696
+c=IN IP4 239.10.10.9/127
+t=1552557431 1552558031
 a=recvonly
-m=audio 49170 RTP/AVP 0
-m=video 51372 RTP/AVP 31
-m=application 32416 udp wb
-a=orient:portrait"""
+m=application 5500 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.961GHz
+a=Antenna Gain: 25dB
+"""
 
-SDP_ = """v=0
-o=mhandley 2890844526 2890842807 IN IP4 126.16.64.4
-s=SDP Seminar
-i=A Seminar on the session description protocol
-u=http://www.cs.ucl.ac.uk/staff/M.Handley/sdp.03.ps
+
+SDP_ = """\
+
+v=0
+o=mhandley 2890844526 2890842807 IN IP4 tgs.upc.edu
+s=OSCAR-7i
+i=OSCAR-7 data multicasting
+u=http://tgs.upc.edu/oscar7
 e=mjh@isi.edu (Mark Handley)
-c=IN IP4 224.2.17.12/127
-
-t=2873397496 2873404696
+c=IN IP4 239.10.10.9/127
+t=1552557431 1552558031
 a=recvonly
-m=audio 49170 RTP/AVP 0
-m=video 51372 RTP/AVP 31
-m=application 32416 udp wb
-a=orient:portrait"""
+m=application 5500 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.961GHz
+a=Antenna Gain: 25dB
+"""
 
+SDP2 = """\
 
-SDP2 = """v=1
-o=mhandley 2890844526 2890842807 IN IP4 126.16.64.4
-s=SDP Seminar
-i=A Seminar on the session description protocol
-u=http://www.cs.ucl.ac.uk/staff/M.Handley/sdp.03.ps
+v=0
+o=mhandley 1345678931 1838482808 IN IP4 tgs.upc.edu
+s=ISS
+i=ISS data multicasting
+u=http://tgs.upc.edu/iss
 e=mjh@isi.edu (Mark Handley)
-c=IN IP4 224.2.17.12/127
-
-t=2873397496 2873404696
+c=IN IP4 239.10.10.10/127
+t=1552562431 1552563031
 a=recvonly
-m=audio 49170 RTP/AVP 0
-m=video 51372 RTP/AVP 31
-m=application 32416 udp wb
-a=orient:portrait"""
+m=application 5000 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.951GHz
+a=Antenna Gain: 25dB
+"""
 
-SDP3 = """v=3
-o=mhandley 2890844526 2890842807 IN IP4 126.16.64.4
-s=SDP Seminar
-i=A Seminar on the session description protocol
-u=http://www.cs.ucl.ac.uk/staff/M.Handley/sdp.03.ps
+SDP3 = """\
+
+v=0
+o=mhandley 4000441234 401032110 IN IP4 tgs.upc.edu
+s=HUBBLE
+i=HUBBLE data multicasting
+u=http://tgs.upc.edu/hubble
 e=mjh@isi.edu (Mark Handley)
-c=IN IP4 224.2.17.12/127
-
-t=2873397496 2873404696
+c=IN IP4 239.10.10.12/127
+t=1552565431 1552566031
 a=recvonly
-m=audio 49170 RTP/AVP 0
-m=video 51372 RTP/AVP 31
-m=application 32416 udp wb
-a=orient:portrait"""
+m=application 4500 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.931GHz
+a=Antenna Gain: 25dB
+"""
 
 command = "add"
 command2 = "delete"
@@ -93,11 +112,12 @@ command2 = "delete"
 msg_lista = []
 
 msg_lista.append(command + "\n" + SDP)
-msg_lista.append(command2 + "\n" + SDP)
-msg_lista.append(command+ "\n" + SDP_)
 msg_lista.append(command + "\n" + SDP2)
+
 msg_lista.append(command + "\n" + SDP3)
+msg_lista.append(command2 + "\n" + SDP2)
 #print command
+
 
 
 def send_info(NewMsg):
@@ -109,7 +129,10 @@ def send_info(NewMsg):
 
     #sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT)) # TODO
     #sock_tx.sendto(command + " " + data, (sap.DEF_ADDR, 4141)) # 4141 puesto porque si
+
     sock_tx.sendto(NewMsg, (sap.DEF_ADDR, 4141)) # 4141 puerto porque si
+    answer = sock_tx.recv(4096)
+    print "la respuesta es", answer
 
 if __name__ == "__main__":
     cont = 0
@@ -124,7 +147,7 @@ if __name__ == "__main__":
                 print "Enviado el paquete\n", msg
             except:
                 print "No se ha podido conectar al servidor 0"
-            time.sleep(10)
+            time.sleep(4)
         print "Se han enviado los paquetes de la lista"
-        time.sleep(10)
+        time.sleep(1)
 
