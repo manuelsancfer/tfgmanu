@@ -1,4 +1,3 @@
-import sys,os
 import curses
 import select
 import time
@@ -6,19 +5,18 @@ import sap
 import socket
 import struct
 
-import export as export
-
-from SDPparser import *
+from mirar.SDPparser import *
 
 
 class Panel:
-
-	_SATNAME_COLS=12
-	_DATETIME_COLS=30
-	_DATETIME_FMT="%a %b %d %H:%M:%S %Z %Y"
-	_FIELDSEP=5
+	_SATNAME_COLS = 12
+	_DATETIME_COLS = 30
+	_DATETIME_FMT = "%a %b %d %H:%M:%S %Z %Y"
+	_FIELDSEP = 5
 	_MainPanel = -1
 	_InfoPanel = 0
+	_StatusBar = "Press 'q' to exit | STATUS BAR | "
+	_StatusInfo = None
 
 	def __init__(self):
 		self.satellite_register = {}
@@ -26,9 +24,7 @@ class Panel:
 		self.drawMainPanel()
 		self.active = self._MainPanel
 
-
-
-	def drawMainPanel(self):
+	def drawMainPanel(self, statusinfo=None):
 		k = 0
 		cursor_x = 0
 		cursor_y = 0
@@ -38,7 +34,6 @@ class Panel:
 		curses.noecho()
 		curses.cbreak()
 		stdscr.keypad(1)
-
 
 		# Clear and refresh the screen for a blank canvas
 		stdscr.clear()
@@ -55,23 +50,23 @@ class Panel:
 		height, width = stdscr.getmaxyx()
 
 		# Declaration of strings
-		title_text = "Next multicast transmission of satellite passes"[:width-1]
-		number_blanks = (width-len(title_text))//2
-		titlebar = '{message: <{fill}}'.format(message=title_text, fill=len(title_text)+number_blanks)
-		titlebar = '{message: >{fill}}'.format(message=titlebar, fill=len(titlebar)+number_blanks)
-
-		statusbarstr = "Press 'q' to exit | STATUS BAR | Pos: {}, {}".format(cursor_x, cursor_y)
-
-
-		# Centering calculations
-		#start_x_title = int((width // 2) - (len(title) // 2) - len(title) % 2)
-		start_x_title = 0
-		start_y_title = 0
+		title_text = "Next multicast transmission of satellite passes"[:width - 1]
+		number_blanks = (width - len(title_text)) // 2
+		titlebar = '{message: <{fill}}'.format(message=title_text, fill=len(title_text) + number_blanks)
+		titlebar = '{message: >{fill}}'.format(message=titlebar, fill=len(titlebar) + number_blanks)
 
 		# Render status bar
+		if statusinfo is None:
+			statusinfo = self._StatusInfo
+
+		if statusinfo is None:
+			statusbarstr = self._StatusBar
+		else:
+			statusbarstr = self._StatusBar + statusinfo
+
 		stdscr.attron(curses.color_pair(3))
-		stdscr.addstr(height-1, 0, statusbarstr)
-		stdscr.addstr(height-1, len(statusbarstr), " " * (width - len(statusbarstr) - 1))
+		stdscr.addstr(height - 1, 0, statusbarstr)
+		stdscr.addstr(height - 1, len(statusbarstr), " " * (width - len(statusbarstr) - 1))
 		stdscr.attroff(curses.color_pair(3))
 
 		# Turning on attributes for title
@@ -79,6 +74,11 @@ class Panel:
 		stdscr.attron(curses.A_BOLD)
 
 		# Rendering title
+
+		# Centering calculations
+		# start_x_title = int((width // 2) - (len(title) // 2) - len(title) % 2)
+		start_x_title = 0
+		start_y_title = 0
 		stdscr.addstr(start_y_title, start_x_title, titlebar)
 
 		# Turning off attributes for title
@@ -86,31 +86,28 @@ class Panel:
 		stdscr.attroff(curses.A_BOLD)
 
 		# Print satellite summary
-		self._FIELDSEP=(width-(self._SATNAME_COLS + 2 * self._DATETIME_COLS))//3
+		self._FIELDSEP = (width - (self._SATNAME_COLS + 2 * self._DATETIME_COLS)) // 3
 		for i in self.satellite_register.keys():
-
 			# Render line
 			index = '{message: >{fill}}'.format(message=i, fill=2)
 			satname = self.satellite_register[i].sessionname
 			satname = '{message: >{fill}}'.format(message=satname, fill=self._SATNAME_COLS)
-			starttime = time.strftime(self._DATETIME_FMT,time.gmtime(self.satellite_register[i].time[0][0]))
+			starttime = time.strftime(self._DATETIME_FMT, time.gmtime(self.satellite_register[i].time[0][0]))
 			starttime = '{message: <{fill}}'.format(message=starttime, fill=self._DATETIME_COLS)
-			endtime = time.strftime(self._DATETIME_FMT,time.gmtime(self.satellite_register[i].time[0][1]))
+			endtime = time.strftime(self._DATETIME_FMT, time.gmtime(self.satellite_register[i].time[0][1]))
 			endtime = '{message: <{fill}}'.format(message=endtime, fill=self._DATETIME_COLS)
-			FS = " "*self._FIELDSEP
+			FS = " " * self._FIELDSEP
 			satline = index + FS + satname + FS + starttime + FS + endtime
 
 			stdscr.attron(curses.color_pair(1))
-			stdscr.addstr(i+1, 0, satline[:width-1])
-			#stdscr.addstr(i+1, len(satline), " " * (width - len(satline) - 1))
+			stdscr.addstr(i + 1, 0, satline[:width - 1])
+			# stdscr.addstr(i+1, len(satline), " " * (width - len(satline) - 1))
 			stdscr.attroff(curses.color_pair(1))
 
-
-		stdscr.move(height-1, width-1)
+		stdscr.move(height - 1, width - 1)
 		# Refresh the screen
 		stdscr.refresh()
 		self.active = self._MainPanel
-
 
 	def drawInfoPanel(self, satidx):
 		cursor_x = 0
@@ -121,7 +118,6 @@ class Panel:
 		curses.noecho()
 		curses.cbreak()
 		stdscr.keypad(1)
-
 
 		# Clear and refresh the screen for a blank canvas
 		stdscr.clear()
@@ -138,28 +134,31 @@ class Panel:
 		height, width = stdscr.getmaxyx()
 
 		# Declaration of strings
-		title_text = "Next multicast transmission of satellite passes"[:width-1]
-		number_blanks = (width-len(title_text))//2
-		titlebar = '{message: <{fill}}'.format(message=title_text, fill=len(title_text)+number_blanks)
-		titlebar = '{message: >{fill}}'.format(message=titlebar, fill=len(titlebar)+number_blanks)
+		title_text = "Next multicast transmission of satellite passes"[:width - 1]
+		number_blanks = (width - len(title_text)) // 2
+		titlebar = '{message: <{fill}}'.format(message=title_text, fill=len(title_text) + number_blanks)
+		titlebar = '{message: >{fill}}'.format(message=titlebar, fill=len(titlebar) + number_blanks)
 
-		statusbarstr = "Press 'q' to exit | STATUS BAR | Pos: {}, {}".format(cursor_x, cursor_y)
-
-
-		# Centering calculations
-		#start_x_title = int((width // 2) - (len(title) // 2) - len(title) % 2)
-		start_x_title = 0
-		start_y_title = 0
+		# Render status bar
+		if self._StatusInfo is None:
+			statusbarstr = self._StatusBar
+		else:
+			statusbarstr = self._StatusBar + self._StatusInfo
 
 		# Render status bar
 		stdscr.attron(curses.color_pair(3))
-		stdscr.addstr(height-1, 0, statusbarstr)
-		stdscr.addstr(height-1, len(statusbarstr), " " * (width - len(statusbarstr) - 1))
+		stdscr.addstr(height - 1, 0, statusbarstr)
+		stdscr.addstr(height - 1, len(statusbarstr), " " * (width - len(statusbarstr) - 1))
 		stdscr.attroff(curses.color_pair(3))
 
 		# Turning on attributes for title
 		stdscr.attron(curses.color_pair(2))
 		stdscr.attron(curses.A_BOLD)
+
+		# Centering calculations
+		# start_x_title = int((width // 2) - (len(title) // 2) - len(title) % 2)
+		start_x_title = 0
+		start_y_title = 0
 
 		# Rendering title
 		stdscr.addstr(start_y_title, start_x_title, titlebar)
@@ -168,129 +167,127 @@ class Panel:
 		stdscr.attroff(curses.color_pair(2))
 		stdscr.attroff(curses.A_BOLD)
 
-		if satidx > len(self.satellite_register) -1:
+		if satidx > len(self.satellite_register) - 1:
 			return 0
 		SDPobj = self.satellite_register[satidx]
 
 		title_text = "Satellite : "
-		title_text = '{message: <{fill}}'.format(message = title_text, fill=len(title_text))
+		title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
 		stdscr.attron(curses.color_pair(2))
-		stdscr.addstr(1, 5, title_text[:width-1])
+		stdscr.addstr(1, 5, title_text[:width - 1])
 
-		panel_text = '{message: <{fill}}'.format(message = SDPobj.sessionname, fill=width)
+		panel_text = '{message: <{fill}}'.format(message=SDPobj.sessionname, fill=width)
 		stdscr.attron(curses.color_pair(1))
-		stdscr.addstr(1, 20, panel_text[:width-1])
-
+		stdscr.addstr(1, 20, panel_text[:width - 1])
 
 		title_text = "Information : "
-		title_text = '{message: <{fill}}'.format(message = title_text, fill=len(title_text))
+		title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
 		stdscr.attron(curses.color_pair(2))
-		stdscr.addstr(2, 5, title_text[:width-1])
+		stdscr.addstr(2, 5, title_text[:width - 1])
 
-		panel_text = '{message: <{fill}}'.format(message = SDPobj.information, fill=width)
+		panel_text = '{message: <{fill}}'.format(message=SDPobj.information, fill=width)
 		stdscr.attron(curses.color_pair(1))
-		stdscr.addstr(2, 20, panel_text[:width-1])
+		stdscr.addstr(2, 20, panel_text[:width - 1])
 
 		title_text = "URL : "
-		title_text = '{message: <{fill}}'.format(message = title_text, fill=len(title_text))
+		title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
 		stdscr.attron(curses.color_pair(2))
-		stdscr.addstr(3, 5, title_text[:width-1])
+		stdscr.addstr(3, 5, title_text[:width - 1])
 
-		panel_text = '{message: <{fill}}'.format(message = SDPobj.URI, fill=width)
+		panel_text = '{message: <{fill}}'.format(message=SDPobj.URI, fill=width)
 		stdscr.attron(curses.color_pair(1))
-		stdscr.addstr(3, 20, panel_text[:width-1])
-
+		stdscr.addstr(3, 20, panel_text[:width - 1])
 
 		title_text = "Start Time : "
-		title_text = '{message: <{fill}}'.format(message = title_text, fill=len(title_text))
+		title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
 		stdscr.attron(curses.color_pair(2))
-		stdscr.addstr(4, 5, title_text[:width-1])
+		stdscr.addstr(4, 5, title_text[:width - 1])
 
-		starttime = time.strftime(self._DATETIME_FMT,time.gmtime(SDPobj.time[0][0]))
-		starttime = '{message: <{fill}}'.format(message = starttime, fill=self._DATETIME_COLS)
+		starttime = time.strftime(self._DATETIME_FMT, time.gmtime(SDPobj.time[0][0]))
+		starttime = '{message: <{fill}}'.format(message=starttime, fill=self._DATETIME_COLS)
 		stdscr.attron(curses.color_pair(1))
-		stdscr.addstr(4, 20, starttime[:width-1])
+		stdscr.addstr(4, 20, starttime[:width - 1])
 
 		title_text = "End Time : "
-		title_text = '{message: <{fill}}'.format(message = title_text, fill=len(title_text))
+		title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
 		stdscr.attron(curses.color_pair(2))
-		stdscr.addstr(5, 5, title_text[:width-1])
+		stdscr.addstr(5, 5, title_text[:width - 1])
 
-		endtime = time.strftime(self._DATETIME_FMT,time.gmtime(SDPobj.time[0][1]))
-		endtime = '{message: <{fill}}'.format(message = endtime, fill=self._DATETIME_COLS)
+		endtime = time.strftime(self._DATETIME_FMT, time.gmtime(SDPobj.time[0][1]))
+		endtime = '{message: <{fill}}'.format(message=endtime, fill=self._DATETIME_COLS)
 		stdscr.attron(curses.color_pair(1))
-		stdscr.addstr(5, 20, endtime[:width-1])
+		stdscr.addstr(5, 20, endtime[:width - 1])
 
 		title_text = "Multicast IP : "
-		title_text = '{message: <{fill}}'.format(message = title_text, fill=len(title_text))
+		title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
 		stdscr.attron(curses.color_pair(2))
-		stdscr.addstr(6, 5, title_text[:width-1])
+		stdscr.addstr(6, 5, title_text[:width - 1])
 
-		ipmcast = '{message: <{fill}}'.format(message = SDPobj.connection[2], fill=15)
+		ipmcast = '{message: <{fill}}'.format(message=SDPobj.connection[2], fill=15)
 		stdscr.attron(curses.color_pair(1))
-		stdscr.addstr(6, 20, ipmcast[:width-1])
+		stdscr.addstr(6, 20, ipmcast[:width - 1])
 
 		for media in SDPobj.media_list:
 
 			panel_text = "media"
-			panel_text = '{message: <{fill}}'.format(message = panel_text, fill=len(panel_text))
+			panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
 			stdscr.attron(curses.color_pair(2))
-			stdscr.addstr(8, 5, panel_text[:width-1])
+			stdscr.addstr(8, 5, panel_text[:width - 1])
 
-			panel_text = '{message: <{fill}}'.format(message = media.media, fill=len(str(media.media)))
+			panel_text = '{message: <{fill}}'.format(message=media.media, fill=len(str(media.media)))
 			stdscr.attron(curses.color_pair(1))
-			stdscr.addstr(9, 5, panel_text[:width-1])
+			stdscr.addstr(9, 5, panel_text[:width - 1])
 
 			panel_text = "port"
-			panel_text = '{message: <{fill}}'.format(message = panel_text, fill=len(panel_text))
+			panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
 			stdscr.attron(curses.color_pair(2))
-			stdscr.addstr(8, 20, panel_text[:width-1])
+			stdscr.addstr(8, 20, panel_text[:width - 1])
 
-			panel_text = '{message: <{fill}}'.format(message = media.port, fill=len(str(media.port)))
+			panel_text = '{message: <{fill}}'.format(message=media.port, fill=len(str(media.port)))
 			stdscr.attron(curses.color_pair(1))
-			stdscr.addstr(9, 20, panel_text[:width-1])
+			stdscr.addstr(9, 20, panel_text[:width - 1])
 
 			panel_text = "protocol"
-			panel_text = '{message: <{fill}}'.format(message = panel_text, fill=len(panel_text))
+			panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
 			stdscr.attron(curses.color_pair(2))
-			stdscr.addstr(8, 35, panel_text[:width-1])
+			stdscr.addstr(8, 35, panel_text[:width - 1])
 
-			panel_text = '{message: <{fill}}'.format(message = media.transport, fill=len(str(media.transport)))
+			panel_text = '{message: <{fill}}'.format(message=media.transport, fill=len(str(media.transport)))
 			stdscr.attron(curses.color_pair(1))
-			stdscr.addstr(9, 35, panel_text[:width-1])
+			stdscr.addstr(9, 35, panel_text[:width - 1])
 
 			panel_text = "format"
-			panel_text = '{message: <{fill}}'.format(message = panel_text, fill=len(panel_text))
+			panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
 			stdscr.attron(curses.color_pair(2))
-			stdscr.addstr(8, 50, panel_text[:width-1])
+			stdscr.addstr(8, 50, panel_text[:width - 1])
 
-			panel_text = '{message: <{fill}}'.format(message = media.formats, fill=len(str(media.formats)))
+			panel_text = '{message: <{fill}}'.format(message=media.formats, fill=len(str(media.formats)))
 			stdscr.attron(curses.color_pair(1))
-			stdscr.addstr(9, 50, panel_text[:width-1])
+			stdscr.addstr(9, 50, panel_text[:width - 1])
 
 			if len(media.attributes) > 0:
 				i = 0
 				for att in media.attributes:
-					if len(att.split(':'))	== 2:
+					if len(att.split(':')) == 2:
 						attname, value = att.split(':')
-						panel_text =  attname +  " : "
-						panel_text = '{message: <{fill}}'.format(message = panel_text, fill=len(panel_text))
+						panel_text = attname + " : "
+						panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
 						stdscr.attron(curses.color_pair(2))
-						stdscr.addstr(12 + i, 5, panel_text[:width-1])
+						stdscr.addstr(12 + i, 5, panel_text[:width - 1])
 						panel_text = value
-						panel_text = '{message: >{fill}}'.format(message = panel_text, fill=len(panel_text))
+						panel_text = '{message: >{fill}}'.format(message=panel_text, fill=len(panel_text))
 						stdscr.attron(curses.color_pair(1))
-						stdscr.addstr(12 + i, 25, panel_text[:width-1])
+						stdscr.addstr(12 + i, 25, panel_text[:width - 1])
 						i = i + 1
 
-
-
-		stdscr.move(height-1, width-1)
+		stdscr.move(height - 1, width - 1)
 		# Refresh the screen
 		stdscr.refresh()
 		self._InfoPanel = satidx
 		self.active = self._InfoPanel
 
+	def StatusInfo(self, text):
+		self._StatusInfo = str(text)
 
 	def add_satellite(self, SDPobj):
 		if len(self.satellite_register) == 0:
@@ -304,21 +301,25 @@ class Panel:
 
 			for i in self.satellite_register.keys():
 				if self.satellite_register[i].time[0][0] > SDPobj.time[0][0]:
-					for k in range(len(self.satellite_register),i,-1):
-						self.satellite_register[k] = self.satellite_register[k-1]
+					for k in range(len(self.satellite_register), i, -1):
+						self.satellite_register[k] = self.satellite_register[k - 1]
 					self.satellite_register[i] = SDPobj
 					self.drawMainPanel()
 					return 1
-			self.satellite_register[i+1] = SDPobj
+			self.satellite_register[i + 1] = SDPobj
 			self.drawMainPanel()
 			return 1
 
 	def del_satellite(self, SDPobj):
 		for i in self.satellite_register.keys():
 			if self.satellite_register[i] == SDPobj:
-				for k in range(i,len(self.satellite_register)-1):
-					self.satellite_register[k] = self.satellite_register[k+1]
-				del self.satellite_register[k+1]
+				if len(self.satellite_register) - 1 == 0:
+					self.satellite_register = {}
+					self.drawMainPanel()
+					return 1
+				for k in range(i, len(self.satellite_register) - 1):
+					self.satellite_register[k] = self.satellite_register[k + 1]
+				del self.satellite_register[k + 1]
 				self.drawMainPanel()
 				return 1
 		return 0
@@ -455,7 +456,7 @@ a=Antenna Gain: 25dB
 				sdpsession1 = SDPSession(sdp_parser.outbox)
 				a = Panel()
 				a.add_satellite(sdpsession1)
-				a.drawMainPanel()
+				a.drawMainPanel("MainPanel")
 
 
 
@@ -479,12 +480,23 @@ a=Antenna Gain: 25dB
 							print "Esta marcado el delete, se borra"
 							msg_list.remove(ms)
 							# todo probar si borra
+							"""sdp_parser = SDPParser(newMsg)
+							sdp_parser.run()
+							sdpsession1 = SDPSession(sdp_parser.outbox)
+							a.del_satellite(sdpsession1)"""
 							sdp_parser = SDPParser(newMsg)
 							sdp_parser.run()
 							sdpsession1 = SDPSession(sdp_parser.outbox)
-							a.del_satellite(sdpsession1)
+							if SDPSession.__eq__(sdpsession1):
+							#for i in a.satellite_register:
+								#if a.satellite_register[i]
+								#if a.satellite_register[i] == sdpsession1:
+									SDPSessionObj = a.satellite_register[i]
+									a.del_satellite(SDPSessionObj)
+									a.drawMainPanel("MainPanel")
+								break
 							#a.add_satellite(sdpsession1)
-							a.drawMainPanel()
+							a.drawMainPanel("MainPanel")
 
 
 							break
@@ -498,7 +510,7 @@ a=Antenna Gain: 25dB
 					sdp_parser.run()
 					sdpsession1 = SDPSession(sdp_parser.outbox)
 					a.add_satellite(sdpsession1)
-					a.drawMainPanel()
+					a.drawMainPanel("MainPanel")
 
 					msg.setLast_timestamp(time.time())
 					msg_list.append(msg)

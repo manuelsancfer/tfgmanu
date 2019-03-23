@@ -1,0 +1,590 @@
+import curses
+import select
+import time
+import sap
+import socket
+import struct
+
+from mirar.SDPparser import *
+
+
+class Panel:
+    _SATNAME_COLS = 12
+    _DATETIME_COLS = 30
+    _DATETIME_FMT = "%a %b %d %H:%M:%S %Z %Y"
+    _FIELDSEP = 5
+    _MainPanel = -1
+    _InfoPanel = 0
+    _StatusBar = "Press 'q' to exit | STATUS BAR | "
+    _StatusInfo = None
+
+    def __init__(self):
+        self.satellite_register = {}
+        self.wobj = curses.initscr()
+        #self.drawMainPanel()
+        self.active = self._MainPanel
+
+    def drawMainPanel(self, statusinfo=None):
+        k = 0
+        cursor_x = 0
+        cursor_y = 0
+
+        stdscr = self.wobj
+
+        curses.noecho()
+        curses.cbreak()
+        stdscr.keypad(1)
+
+        # Clear and refresh the screen for a blank canvas
+        stdscr.clear()
+        stdscr.refresh()
+
+        # Start colors in curses
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_CYAN)
+        curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
+
+        # Initialization
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+
+        # Declaration of strings
+        title_text = "Next multicast transmission of satellite passes"[:width - 1]
+        number_blanks = (width - len(title_text)) // 2
+        titlebar = '{message: <{fill}}'.format(message=title_text, fill=len(title_text) + number_blanks)
+        titlebar = '{message: >{fill}}'.format(message=titlebar, fill=len(titlebar) + number_blanks)
+
+        # Render status bar
+        if statusinfo is None:
+            statusinfo = self._StatusInfo
+
+        if statusinfo is None:
+            statusbarstr = self._StatusBar
+        else:
+            statusbarstr = self._StatusBar + statusinfo
+
+        stdscr.attron(curses.color_pair(3))
+        stdscr.addstr(height - 1, 0, statusbarstr)
+        stdscr.addstr(height - 1, len(statusbarstr), " " * (width - len(statusbarstr) - 1))
+        stdscr.attroff(curses.color_pair(3))
+
+        # Turning on attributes for title
+        stdscr.attron(curses.color_pair(2))
+        stdscr.attron(curses.A_BOLD)
+
+        # Rendering title
+
+        # Centering calculations
+        # start_x_title = int((width // 2) - (len(title) // 2) - len(title) % 2)
+        start_x_title = 0
+        start_y_title = 0
+        stdscr.addstr(start_y_title, start_x_title, titlebar)
+
+        # Turning off attributes for title
+        stdscr.attroff(curses.color_pair(2))
+        stdscr.attroff(curses.A_BOLD)
+
+        # Print satellite summary
+        self._FIELDSEP = (width - (self._SATNAME_COLS + 2 * self._DATETIME_COLS)) // 3
+        for i in self.satellite_register.keys():
+            # Render line
+            index = '{message: >{fill}}'.format(message=i, fill=2)
+            satname = self.satellite_register[i].sessionname
+            satname = '{message: >{fill}}'.format(message=satname, fill=self._SATNAME_COLS)
+            starttime = time.strftime(self._DATETIME_FMT, time.gmtime(self.satellite_register[i].time[0][0]))
+            starttime = '{message: <{fill}}'.format(message=starttime, fill=self._DATETIME_COLS)
+            endtime = time.strftime(self._DATETIME_FMT, time.gmtime(self.satellite_register[i].time[0][1]))
+            endtime = '{message: <{fill}}'.format(message=endtime, fill=self._DATETIME_COLS)
+            FS = " " * self._FIELDSEP
+            satline = index + FS + satname + FS + starttime + FS + endtime
+
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(i + 1, 0, satline[:width - 1])
+            # stdscr.addstr(i+1, len(satline), " " * (width - len(satline) - 1))
+            stdscr.attroff(curses.color_pair(1))
+
+        stdscr.move(height - 1, width - 1)
+        # Refresh the screen
+        stdscr.refresh()
+        self.active = self._MainPanel
+
+    def drawInfoPanel(self, satidx):
+        cursor_x = 0
+        cursor_y = 0
+
+        stdscr = self.wobj
+
+        curses.noecho()
+        curses.cbreak()
+        stdscr.keypad(1)
+
+        # Clear and refresh the screen for a blank canvas
+        stdscr.clear()
+        stdscr.refresh()
+
+        # Start colors in curses
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
+
+        # Initialization
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+
+        # Declaration of strings
+        title_text = "Next multicast transmission of satellite passes"[:width - 1]
+        number_blanks = (width - len(title_text)) // 2
+        titlebar = '{message: <{fill}}'.format(message=title_text, fill=len(title_text) + number_blanks)
+        titlebar = '{message: >{fill}}'.format(message=titlebar, fill=len(titlebar) + number_blanks)
+
+        # Render status bar
+        if self._StatusInfo is None:
+            statusbarstr = self._StatusBar
+        else:
+            statusbarstr = self._StatusBar + self._StatusInfo
+
+        # Render status bar
+        stdscr.attron(curses.color_pair(3))
+        stdscr.addstr(height - 1, 0, statusbarstr)
+        stdscr.addstr(height - 1, len(statusbarstr), " " * (width - len(statusbarstr) - 1))
+        stdscr.attroff(curses.color_pair(3))
+
+        # Turning on attributes for title
+        stdscr.attron(curses.color_pair(2))
+        stdscr.attron(curses.A_BOLD)
+
+        # Centering calculations
+        # start_x_title = int((width // 2) - (len(title) // 2) - len(title) % 2)
+        start_x_title = 0
+        start_y_title = 0
+
+        # Rendering title
+        stdscr.addstr(start_y_title, start_x_title, titlebar)
+
+        # Turning off attributes for title
+        stdscr.attroff(curses.color_pair(2))
+        stdscr.attroff(curses.A_BOLD)
+
+        if satidx > len(self.satellite_register) - 1:
+            return 0
+        SDPobj = self.satellite_register[satidx]
+
+        title_text = "Satellite : "
+        title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(1, 5, title_text[:width - 1])
+
+        panel_text = '{message: <{fill}}'.format(message=SDPobj.sessionname, fill=width)
+        stdscr.attron(curses.color_pair(1))
+        stdscr.addstr(1, 20, panel_text[:width - 1])
+
+        title_text = "Information : "
+        title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(2, 5, title_text[:width - 1])
+
+        panel_text = '{message: <{fill}}'.format(message=SDPobj.information, fill=width)
+        stdscr.attron(curses.color_pair(1))
+        stdscr.addstr(2, 20, panel_text[:width - 1])
+
+        title_text = "URL : "
+        title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(3, 5, title_text[:width - 1])
+
+        panel_text = '{message: <{fill}}'.format(message=SDPobj.URI, fill=width)
+        stdscr.attron(curses.color_pair(1))
+        stdscr.addstr(3, 20, panel_text[:width - 1])
+
+        title_text = "Start Time : "
+        title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(4, 5, title_text[:width - 1])
+
+        starttime = time.strftime(self._DATETIME_FMT, time.gmtime(SDPobj.time[0][0]))
+        starttime = '{message: <{fill}}'.format(message=starttime, fill=self._DATETIME_COLS)
+        stdscr.attron(curses.color_pair(1))
+        stdscr.addstr(4, 20, starttime[:width - 1])
+
+        title_text = "End Time : "
+        title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(5, 5, title_text[:width - 1])
+
+        endtime = time.strftime(self._DATETIME_FMT, time.gmtime(SDPobj.time[0][1]))
+        endtime = '{message: <{fill}}'.format(message=endtime, fill=self._DATETIME_COLS)
+        stdscr.attron(curses.color_pair(1))
+        stdscr.addstr(5, 20, endtime[:width - 1])
+
+        title_text = "Multicast IP : "
+        title_text = '{message: <{fill}}'.format(message=title_text, fill=len(title_text))
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(6, 5, title_text[:width - 1])
+
+        ipmcast = '{message: <{fill}}'.format(message=SDPobj.connection[2], fill=15)
+        stdscr.attron(curses.color_pair(1))
+        stdscr.addstr(6, 20, ipmcast[:width - 1])
+
+        for media in SDPobj.media_list:
+
+            panel_text = "media"
+            panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
+            stdscr.attron(curses.color_pair(2))
+            stdscr.addstr(8, 5, panel_text[:width - 1])
+
+            panel_text = '{message: <{fill}}'.format(message=media.media, fill=len(str(media.media)))
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(9, 5, panel_text[:width - 1])
+
+            panel_text = "port"
+            panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
+            stdscr.attron(curses.color_pair(2))
+            stdscr.addstr(8, 20, panel_text[:width - 1])
+
+            panel_text = '{message: <{fill}}'.format(message=media.port, fill=len(str(media.port)))
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(9, 20, panel_text[:width - 1])
+
+            panel_text = "protocol"
+            panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
+            stdscr.attron(curses.color_pair(2))
+            stdscr.addstr(8, 35, panel_text[:width - 1])
+
+            panel_text = '{message: <{fill}}'.format(message=media.transport, fill=len(str(media.transport)))
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(9, 35, panel_text[:width - 1])
+
+            panel_text = "format"
+            panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
+            stdscr.attron(curses.color_pair(2))
+            stdscr.addstr(8, 50, panel_text[:width - 1])
+
+            panel_text = '{message: <{fill}}'.format(message=media.formats, fill=len(str(media.formats)))
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(9, 50, panel_text[:width - 1])
+
+            if len(media.attributes) > 0:
+                i = 0
+                for att in media.attributes:
+                    if len(att.split(':')) == 2:
+                        attname, value = att.split(':')
+                        panel_text = attname + " : "
+                        panel_text = '{message: <{fill}}'.format(message=panel_text, fill=len(panel_text))
+                        stdscr.attron(curses.color_pair(2))
+                        stdscr.addstr(12 + i, 5, panel_text[:width - 1])
+                        panel_text = value
+                        panel_text = '{message: >{fill}}'.format(message=panel_text, fill=len(panel_text))
+                        stdscr.attron(curses.color_pair(1))
+                        stdscr.addstr(12 + i, 25, panel_text[:width - 1])
+                        i = i + 1
+
+        stdscr.move(height - 1, width - 1)
+        # Refresh the screen
+        stdscr.refresh()
+        self._InfoPanel = satidx
+        self.active = self._InfoPanel
+
+    def StatusInfo(self, text):
+        self._StatusInfo = str(text)
+
+    def add_satellite(self, SDPobj):
+        if len(self.satellite_register) == 0:
+            self.satellite_register[0] = SDPobj
+            #self.drawMainPanel()
+            return 1
+        else:
+            for i in self.satellite_register.keys():
+                if self.satellite_register[i] == SDPobj:
+                    return 0
+
+            for i in self.satellite_register.keys():
+                if self.satellite_register[i].time[0][0] > SDPobj.time[0][0]:
+                    for k in range(len(self.satellite_register), i, -1):
+                        self.satellite_register[k] = self.satellite_register[k - 1]
+                    self.satellite_register[i] = SDPobj
+                    #self.drawMainPanel()
+                    return 1
+            self.satellite_register[i + 1] = SDPobj
+            #self.drawMainPanel()
+            return 1
+
+    def del_satellite(self, SDPobj):
+        for i in self.satellite_register.keys():
+            if self.satellite_register[i] == SDPobj:
+                if len(self.satellite_register) - 1 == 0:
+                    self.satellite_register = {}
+                    #self.drawMainPanel()
+                    return 1
+                for k in range(i, len(self.satellite_register) - 1):
+                    self.satellite_register[k] = self.satellite_register[k + 1]
+                del self.satellite_register[k + 1]
+                #self.drawMainPanel()
+                return 1
+        return 0
+
+
+msg_list = []
+dictionary = {}
+
+
+def main():
+    sdp1 = """\
+v=0
+o=mhandley 2890844526 2890842807 IN IP4 tgs.upc.edu
+s=OSCAR-7
+i=OSCAR-7 data multicasting
+u=http://tgs.upc.edu/oscar7
+e=mjh@isi.edu (Mark Handley)
+c=IN IP4 239.10.10.9/127
+t=1552557431 1552558031
+a=recvonly
+m=application 5500 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.961GHz
+a=Antenna Gain: 25dB
+""".splitlines()
+
+    sdp2 = """\
+v=0
+o=mhandley 1345678931 1838482808 IN IP4 tgs.upc.edu
+s=ISS
+i=ISS data multicasting
+u=http://tgs.upc.edu/iss
+e=mjh@isi.edu (Mark Handley)
+c=IN IP4 239.10.10.10/127
+t=1552562431 1552563031
+a=recvonly
+m=application 5000 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.951GHz
+a=Antenna Gain: 25dB
+""".splitlines()
+
+    sdp3 = """\
+v=0
+o=mhandley 4000441234 401032110 IN IP4 tgs.upc.edu
+s=HUBBLE
+i=HUBBLE data multicasting
+u=http://tgs.upc.edu/hubble
+e=mjh@isi.edu (Mark Handley)
+c=IN IP4 239.10.10.12/127
+t=1552565431 1552566031
+a=recvonly
+m=application 4500 udp GNURadio
+a=BkName: USRP Source
+a=SampleFmt: Complex
+a=SampleRate: 6.25Msps
+a=Carrier:1.931GHz
+a=Antenna Gain: 25dB
+""".splitlines()
+
+    # Prepare the socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("", sap.DEF_PORT))
+    mreq = struct.pack("4sl", socket.inet_aton(sap.DEF_ADDR), socket.INADDR_ANY)
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+    garbage_collector_period = 5
+
+    """
+    # Build some imaginary passing dates
+    sdp_parser = SDPParser(sdp1)
+    sdp_parser.run()
+    sdpsession1 = SDPSession(sdp_parser.outbox)
+    sdp_parser = SDPParser(sdp2)
+    sdp_parser.run()
+    sdpsession2 = SDPSession(sdp_parser.outbox)
+    sdp_parser = SDPParser(sdp3)
+    sdp_parser.run()
+    sdpsession3 = SDPSession(sdp_parser.outbox)
+
+
+    #summary1 = (sdpsession1.sessionname, sdpsession1.time[0][0], sdpsession1.time[0][1])
+    #summary2 = (sdpsession2.sessionname, sdpsession2.time[0][0], sdpsession2.time[0][1])
+    #summary3 = (sdpsession3.sessionname, sdpsession3.time[0][0], sdpsession3.time[0][1])
+
+
+    a = Panel()
+    a.add_satellite(sdpsession1)
+    a.add_satellite(sdpsession2)
+    a.add_satellite(sdpsession3)
+    a.drawMainPanel() """
+
+    # a.print_satellites()
+
+    while True:
+        inputs = [sock]
+
+        outputs = []
+        message_queues = {}
+
+        readable, writable, exceptional = select.select(inputs, [], [], garbage_collector_period)
+
+        if len(readable) != 0:
+            data = sock.recv(4096)
+            msg = sap.Message()
+            msg.unpack(data)
+
+            sdp = ""
+            # se quita el primero porque sobra, y los dos ultimos porque llegan vacios
+            print (len(data.split('\n')))
+            for i in range(1, len(data.split('\n')) - 2):
+                sdp = sdp + data.split('\n')[i] + "\n"
+            newMsg = sdp.splitlines()
+
+            if len(msg_list) == 0:
+                msg.setLast_timestamp(time.time())
+                msg_list.append(msg)  # puede que sea data en vez de NewMsg o unpackdata
+                # Build some imaginary passing dates
+                sdp_parser = SDPParser(newMsg)
+                sdp_parser.run()
+                sdpsession1 = SDPSession(sdp_parser.outbox)
+                a = Panel()
+                a.add_satellite(sdpsession1)
+                #a.drawMainPanel("MainPanel")
+
+
+
+            else:
+                # se comprueba si existe el mensaje
+                exist = False
+
+                for ms in msg_list:
+                    if ms == msg:  # quiza es ms=newMsg
+                        # si existe el mensaje no se anyadira
+                        exist = True
+                        ms.setLast_timestamp(time.time())
+
+                        if ms.__eq2__(msg):
+                            # si existe un mensaje igual se retorna un 1
+                            print "Es un mensaje igual, no actuaria"
+                        # todo probar si borra
+
+                        else:
+                            print "Esta marcado el delete, se borra"
+                            msg_list.remove(ms)
+                            # todo probar si borra
+                            """sdp_parser = SDPParser(newMsg)
+                            sdp_parser.run()
+                            sdpsession1 = SDPSession(sdp_parser.outbox)
+                            a.del_satellite(sdpsession1)"""
+                            #sdp_parser = SDPParser(newMsg)
+                            #sdp_parser.run()
+                            #sdpsession1 = SDPSession(sdp_parser.outbox)
+                            #print "el sdparser es", sdp_parser
+                            #print "sdpsesion1 es", sdpsession1
+                            #sdparser_new=sdp_parser
+                            #sdp_sesionnew=sdpsession1
+
+                            ser0=SDPParser(a.satellite_register).str_sdp
+
+                            sdp_new_to_delete = SDPParser(newMsg)
+                            sdp_new_to_delete.run()
+                            c = SDPSession(sdp_new_to_delete.outbox)
+                            a.add_satellite(c)
+                            c2= SDPParser(a.satellite_register[2])
+                            c3= SDPParser(a.satellite_register[2]).str_sdp
+                            tesr=c3==c
+                            # Para poder comparar se ha de insertar en la lista
+
+
+                            sdp_new_to_delete = SDPParser(newMsg)
+                            sdp_new_to_delete.run()
+                            c = SDPSession(sdp_new_to_delete.outbox)
+                            a.add_satellite(c)
+                            g1= SDPParser(a.satellite_register[3])
+                            g2= SDPParser(a.satellite_register[3]).str_sdp
+                            g2= SDPParser(a.satellite_register[3]).str_sdp
+
+                            k1=SDPParser(a.satellite_register[1]).str_sdp
+
+                            tester2=c3==c
+                            tester3=c==k1
+                            tester4=g2==c
+                            ser=SDPParser(a.satellite_register).str_sdp
+                            #sdp_new_to_delete_from_list= SDPParser(a.satellite_register[3])
+
+
+                            for i in range(0,len(a.satellite_register)):
+                                sdp_iterative = SDPParser(a.satellite_register[i]).str_sdp
+
+
+                                lkl=c==sdp_iterative
+
+                                if lkl==True:
+
+                                    ###if SDPSession.__eq__(newMsg):
+                                    print "el satelite registrer es"
+
+                                    ##satelite_registrer_tot=sdp_parser.readline()
+                                    ##SDPSessionObj = a.satellite_register[i]
+                                    ######a.del_satellite(sdpsession1)
+                                    ## a.drawMainPanel("MainPanel")
+                                    #break
+                            # a.add_satellite(sdpsession1)
+                            #a.drawMainPanel("MainPanel")
+
+                            #break
+
+                if exist == False:
+                    # si no existe ningun paquete igual se anyade
+                    print "Mensaje anyadido"
+
+                    sdp_parser = SDPParser(newMsg)
+                    sdp_parser.run()
+                    sdpsession1 = SDPSession(sdp_parser.outbox)
+                    a.add_satellite(sdpsession1)
+                    #a.drawMainPanel("MainPanel")
+
+                    msg.setLast_timestamp(time.time())
+                    msg_list.append(msg)
+            print "Ready"
+            print "longitud lista", len(msg_list)
+
+        if not (readable or writable):
+            print "time out "
+            for ms in msg_list:
+                # mira si hay que borrar algun paquete
+                print "dentro del borra de timeout"
+                delete = ms.intervalPacket(time.time())
+                if delete == 1:
+                    print "borrado del "
+                    # si devuelve 1 borara el paquete
+                    msg_list.remove(ms)
+                else:
+                    print "no se borra"
+                print "longitud lista es ", len(msg_list)
+
+        # inputs = [sys.stdin]
+        """try:
+            k = a.wobj.getch()
+            if k == ord('q'):
+                curses.endwin()
+                break
+            if a.active == a._MainPanel:
+                maxsats = len(a.satellite_register)
+                if (k-48) > -1 and (k-48) < maxsats :
+                    a.drawInfoPanel(k-48)
+                elif a.active == a._InfoPanel:
+                    a.drawMainPanel()"""
+
+        """except:
+
+            if a.active == a._MainPanel:
+                a.drawMainPanel()
+            elif a.active == a._InfoPanel:
+                a.drawInfoPanel(a._InfoPanel)
+            e=3 """
+
+
+if __name__ == "__main__":
+    main()
+
