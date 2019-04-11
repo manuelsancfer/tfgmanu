@@ -1,21 +1,14 @@
 #!/usr/bin/env python
 
+# import libraries
 import sap
 import socket
 import time
-import select
-import struct
-import datetime
 
 
-###########
-##ERRORES##
-###########
-
-
-###################################
-##VARIABLES EXTRAIDAS DE GNURADIO##
-###################################
+####################################
+##VARIABLES EXTRACTED FROM GNURADIO#
+####################################
 gnu_hora_inicio= ""
 gnu_hora_fin= ""
 gnu_ancho_banda= ""
@@ -108,6 +101,10 @@ a=Carrier:1.931GHz
 a=Antenna Gain: 25dB
 """
 
+###############################
+##EXAMPLE TO SEND SAP PACKETS##
+###############################
+
 command = "add"
 command2 = "delete"
 
@@ -115,41 +112,37 @@ msg_lista = []
 
 msg_lista.append(command + "\n" + SDP)
 msg_lista.append(command + "\n" + SDP2)
-
 msg_lista.append(command + "\n" + SDP3)
 msg_lista.append(command2 + "\n" + SDP2)
-#print command
-
 
 
 def send_info(NewMsg):
+    """
+    Function to send sap messages through TCP.
+    """
 
     print "Sending packet"
-    #sock_tx.connect(("",sap.DEF_PORT)) #TODO
-    sock_tx.connect(("",4141)) #4141 puesto porque si
+    sock_tx.connect(("",4141)) #todo poner puerto
 
-
-    #sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT)) # TODO
-    #sock_tx.sendto(command + " " + data, (sap.DEF_ADDR, 4141)) # 4141 puesto porque si
-
-    sock_tx.sendto(NewMsg, (sap.DEF_ADDR, 4141)) # 4141 puerto porque si
+    sock_tx.sendto(NewMsg, (sap.DEF_ADDR, 4141)) # todo poner puerto
     answer = sock_tx.recv(4096)
-    print "la respuesta es", answer
+    print answer
 
 if __name__ == "__main__":
-    cont = 0
     while True:
 
         for msg in msg_lista:
+            # prepare socket conection
             sock_tx = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)  # SOCK_STREAM para tcp
             sock_tx.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             myaddr = socket.gethostbyname(socket.gethostname())
+
             try:
                 send_info(msg)
-                print "Enviado el paquete\n", msg
+                print "Sent the package\n", msg
             except:
-                print "No se ha podido conectar al servidor 0"
+                print "Unable to connect to server"
             time.sleep(4)
-        print "Se han enviado los paquetes de la lista"
-        time.sleep(1)
+        print "All packages have been sent"
+        time.sleep(1) # todo cada cuanto envia
 

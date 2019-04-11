@@ -92,31 +92,35 @@ class Message:
         self._src_ip = src_ip
         self._payload = ""
         self._deletion = deletion
-        self._compress = False
+        self._compress = compression
         self._average_time = average
         self._interval_number = interval_number
         self._last_timestamp = last_timestamp
         self._total_interval_time = total_interval_time
 
     def setLast_timestamp(self, new_time):
+        """
+        Function to initialize time in the advertisement
+        """
         if self._last_timestamp == 0:
             self._interval_number = 1
             self._last_timestamp = new_time
-            print "inicializa", new_time
 
         else:
             interval = new_time - self._last_timestamp
-            print " el intervalo es", interval
-            # se guarda la hora del ultimo paquete recibido
+            # the time of the last received packet is saved
             self._last_timestamp = new_time
             self._average_time = (interval + self._total_interval_time) / self._interval_number
-            # se suma despues el nuevo paquete y se calcula el tiempo total entre intervalos
+            # the new package is added and the total time between intervals is calculated
             self._total_interval_time = self._average_time * self._interval_number
             self._interval_number = self._interval_number + 1
-            print " el numero del paquete es ", self._interval_number
 
 
     def intervalPacket(self, new_time):
+        """
+        function to check if the packet has not reached 10 times
+        the interval or in 3600 minutes
+        """
         interval = new_time - self._last_timestamp
         if self._average_time != 0:
 
@@ -189,9 +193,6 @@ class Message:
 
         self._compress = (fbyte & self._COMPRESSED) != 0x00
         self._deletion = (fbyte & self._DELETION) != 0x00
-
-        #self._last_timestamp = self._last_timestamp
-        #self._average_time = self._average_time
 
         if (fbyte & self._IPV6_ADDR) != 0x00:
             ip_type = socket.AF_INET6
@@ -296,7 +297,6 @@ class Message:
                  (self._payload == other._payload) & \
                  (self._compress == other._compress)
         return result
-    # (self._deletion == other._deletion) & \
 
     def __eq2__(self, other):
         result = (self._deletion == other._deletion)
@@ -320,5 +320,3 @@ if __name__ == "__main__":
     msg2 = Message()
     data = msg1.pack()
     msg2.unpack(data)
-    print msg1
-    print msg2

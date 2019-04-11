@@ -168,18 +168,17 @@ class SDPSession:
 		if self._last_timestamp == 0:
 			self._interval_number = 1
 			self._last_timestamp = new_time
-			print "Init new time: ", new_time
-	
+
 		else:
 			interval = new_time - self._last_timestamp
-			print " interval value: ", interval
+			#print " interval value: ", interval
 			# se guarda la hora del ultimo paquete recibido
 			self._last_timestamp = new_time
 			self._average_time = (interval + self._total_interval_time) / self._interval_number
 			# se suma despues el nuevo paquete y se calcula el tiempo total entre intervalos
 			self._total_interval_time = self._average_time * self._interval_number
 			self._interval_number = self._interval_number + 1
-			print " packet number: ", self._interval_number
+			#print " packet number: ", self._interval_number
 	
 	
 	def intervalPacket(self, new_time):

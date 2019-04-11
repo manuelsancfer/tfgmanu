@@ -1,12 +1,17 @@
+
+#import libraries
 import sys,os
 import curses
 import select
 import time
+
+# import from other scripts
 from SDP import *
 from SatRegister import *
 
 class Panel:
-	
+
+	# graphic visual definition
 	_SATNAME_COLS=12
 	_DATETIME_COLS=30
 	_DATETIME_FMT="%a %b %d %H:%M:%S %Z %Y"
@@ -16,14 +21,13 @@ class Panel:
 	_StatusBar = "Press 'q' to exit | STATUS BAR | "
 	_StatusInfo = None
 
+	# satellite registry
 	def __init__(self, SatReg):
 		self.satreg = SatReg
 		self.wobj = curses.initscr()
-		#self.drawMainPanel()
 		self.active = self._MainPanel
-		
 
-
+	# function to draw the main panel
 	def drawMainPanel(self, statusinfo = None):
 		k = 0
 		cursor_x = 0
@@ -115,7 +119,7 @@ class Panel:
 		stdscr.refresh()
 		self.active = self._MainPanel
 				
-	
+	# function to draw the information of the pass of a satellite
 	def drawInfoPanel(self, satidx):
 		cursor_x = 0
 		cursor_y = 0
@@ -299,14 +303,10 @@ class Panel:
 		stdscr.refresh()
 		self._InfoPanel = satidx
 		self.active = self._InfoPanel
-				
 
+	# function to write some text ??? todo ver
 	def StatusInfo(self, text):
 		self._StatusInfo = str(text)
-		
-		
-			
-			
 
 def main():
 	

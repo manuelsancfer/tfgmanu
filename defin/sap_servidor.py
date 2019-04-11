@@ -1,14 +1,19 @@
 #!/usr/bin/env python
+# Author Manuel Sanchez Fernandez
+"""For receive sap messages and transmitting sdp messages
+to multicast groups
+"""
 
+# import the libraries
 import sap
 import socket
 import select
 import struct
 import datetime
 
-###################################
-##VARIABLES EXTRAIDAS DE GNURADIO##
-###################################
+###########################
+##VARIABLES FROM GNURADIO##
+###########################
 gnu_hora_inicio= ""
 gnu_hora_fin= ""
 gnu_ancho_banda= ""
@@ -39,21 +44,29 @@ a=orient:portrait"""
 
 
 
-# funcion para restar el time_out que queda, t2 es el tiempo actual
 def timeturn(t1, t2):
+    """
+    Return returns the remaining timeout time.
+    :param t1: time when it should end
+    :param t2: actual time
+    :return:
+    """
     t= t1-t2
     date_str = int((t.microseconds + (t.seconds + t.days * 86400) * 10**6) / 10**6)
     print date_str
     return date_str
 
-#funcion para enviar info de sesiones
 def send_info(command="add", msg_delete=""):
+    """
+    function to send the information of sessions.
+    :param command: add by defect or delete.
+    :param msg_delete: if command=add then in this function we will build the sap packet;
+        else the sap packet comes built.
+    """
 
     if command == "delete":
         print "Sending delete SAP packet"
         sock_tx.sendto(msg_delete, (sap.DEF_ADDR, sap.DEF_PORT)) #todo mirar si esta bien el envio
-
-
 
     else:
         for msg in msg_list:
@@ -61,22 +74,18 @@ def send_info(command="add", msg_delete=""):
             data = msg.pack()
             sock_tx.sendto(data, (sap.DEF_ADDR, sap.DEF_PORT))
 
-
-#Lista_TX={}
-# Variable diccionario
-
-# funcion que asigna un nuevo hash
-def add_hash(): # TODO implementar poder devolver error
+def add_hash():
+    """
+    Function to assign a new Hash value
+    """
 
     available = False
     for i in range(0, pow(2, 16)+1):
-        if Msg_Hash[i] == "No disponible":
-            # sino esta disponible el programa debe continuar
+        if Msg_Hash[i] == "Not available":
             continue
 
         else:
-            # ponemos en la lista que ese numero de hash no esta disponible
-            Msg_Hash.update({i:'No disponible'})
+            Msg_Hash.update({i:'Not available'})
             hash_id = i
             available = True
             break
@@ -85,47 +94,57 @@ def add_hash(): # TODO implementar poder devolver error
         return hash_id
 
     else:
-        print ("No hay ninguna conexion disponible.")
+        print ("There is no connection available.")
 
 def Delete_Hash(hash_id, msg):
-
-    """"# Actualizamos el valor del hash id poniendolo disponible
-    msg_list.remove(msg)
-    Msg_Hash.update({hash_id:'Disponible'})
-    # todo avisar al cliente que se ha borrado"""
-
-    ###prueba
+    """
+    Function to free Hash value when there is an implicit delete
+    :param hash_id: hash value from message to delete
+    :param msg: message to delete
+    """
     msg.setDeletion(True)
     data = msg.pack()
     send_info("delete", data)
     msg_list.remove(msg)
-    Msg_Hash.update({hash_id:'Disponible'})
-    # todo avisar al cliente que se ha borrado
+    Msg_Hash.update({hash_id:'Available'})
 
 def check_msg(payload, command):
+    """
+    Function to check if the message exists(1) or not(0).
+    And if the command is delete it also returns the hash value and the message
+    :param payload: payload sap message
+    :param command: command can be add or delete
+    :return:
+    """
+
     Newmsg = sap.Message()
     Newmsg.setPayload(payload)
 
-    # comprobamos si existe algun mensaje igual
+    # check if the message exists or not
     for msg in msg_list:
         msgHashId = msg._msg_hash
         Newmsg.setSource(myaddr)
         Newmsg.setMsgHash(msgHashId)
 
         if msg.__eq__(Newmsg):
-            # si existe un mensaje igual se retorna un 1
             if command == "add":
                 return 1
             else:
                 return 1, msgHashId, msg
-    # sino ha encontondrado un mensaje igual se retorna un 0
+
     if command == "add":
         return 0
     else:
         return 0, "", ""
 
-#msg_list = []
-def tcp_handler(data):   # es el New msg
+def tcp_handler(data):
+    """
+    Function to handle the sap package. Separates the command from the sap,
+    with the command choose if it add or remove.
+    Return returns 1 to recalculate the timeout(package added or deleted)
+    or 0 to not recalculate it.
+    :param data: sap message
+    """
     global msg_list
 
     command = data.split('\n')[0]
@@ -143,8 +162,7 @@ def tcp_handler(data):   # es el New msg
     if command == "add":
 
         if len(msg_list) == 0:
-            # si la lista esta vacia anyadimos un hash
-            hashid = add_hash() #inicializar hash
+            hashid = add_hash()
             Newmsg.setMsgHash(hashid)
 
             print "msg is the first in the system\n"
@@ -152,12 +170,10 @@ def tcp_handler(data):   # es el New msg
             print "\n\n"
             msg_list.append(Newmsg)
             del Newmsg
-
-            # retornanos un 1 para recalcular el tiempo
             return 1
+
         else:
-            # Comprobamos si el sdp ya existe
-            exists = check_msg(sdp, command) # TODO VER SI FALLA POR DEVOLVER DOS COSAS
+            exists = check_msg(sdp, command)
 
             if exists == 1:
                 print "msg and newMsg are the same messages\n"
@@ -165,35 +181,29 @@ def tcp_handler(data):   # es el New msg
                 print "msg and newMsg are different messages\n"
                 hashid = add_hash()
 
-                if hashid == "No hay ninguna conexion disponible.":
+                if hashid == "There is no connection available.":
                     print hashid
                     del Newmsg
+
                 else:
                     Newmsg.setMsgHash(hashid)
-                    # data = Newmsg.pack() todo mirar pero creo que fuera
                     msg_list.append(Newmsg)
                     del Newmsg
-
-                    # retornanos un 1 para recalcular el tiempo
                     return 1
 
     elif command == "delete":
         print "vamos a borrar, el tamnyo ahora es ", len(msg_list)
 
         if len(msg_list) == 0:
-            # si la lista esta vacia no hacemos nada
-            print "No hay ningun mensaje en la lista"
             del Newmsg
 
-
         else:
-            # comprobamos si existe algun mensaje igual, devuelve el hash y el mensaje
             exists, hashid, msg = check_msg(sdp, command)
             if exists == 0:
-                # si no existe ningun mensaje igual no hacemos nada
-                print "No existe ningun mensaje igual que Newmsg\n"
+                print "There is no message that is the same as the Newmsg\n"
+
             else:
-                print "Se ha borrado el mensaje.\n"
+                print "The message has been delete.\n"
                 Delete_Hash(hashid, msg)
                 print "despues de borrar, el tamanyo es ", len(msg_list)
                 del Newmsg
@@ -201,38 +211,20 @@ def tcp_handler(data):   # es el New msg
 
 
     else:
-        print "El comando no es correcto."
+        print "The command is not correct."
         del Newmsg
     return 0
 
-"""
-    msg = None
-    for msg in Msg_Hash:
-        hasid = msg._msg_hash
-        print "el hasid de momento es"
-        print hasid
-        newMsg.setMsgHash(hasid)
-        if msg.__eq__(newMsg):
-            # newMsg y msg son iguales
-            break
-    print "el msg"
-    if msg == None:
-        print "dentro del None"
-        # El mensaje SDP es nuevo
-        # Si hay que enviar este nuevo mensaje, hay que asignar un nuevo hashid que no este en uso
-        #hasid = get_New_HasId(newMsg)
-        #hasid = newMsg.unpack(data)
-
-        newMsg.setMsgHash(hasid)
-        # Anyadir nuevo mensaje a la lista de mesnajes
-        Msg_Hash.append(newMsg)
-    else:
-        # El SDP recibido por el socket ya existe en el sistema
-        # en este punto del programa newMsg y msg son iguales
-        # TODO modificar o borrar el mensaje
-        print """
 
 def recalculate(time_out=0, time_finish_out=0):
+    """
+    function to recalculate the time out.
+    Time_out and time_finish_out will default to 0 if there has been a timeout in the program.
+    if a package has been added or removed, timeout will be the timeout calculated previously,
+    in this case return returns the recalculated time_out.
+    Time_finish_out is the time at which the time_out should be activated in select
+    in this case return returns the time_out and time_finish recalculated.
+    """
     sum = 0
 
     for m in msg_list:
@@ -248,88 +240,76 @@ def recalculate(time_out=0, time_finish_out=0):
         time_finish_out = time_finish_out + datetime.timedelta(seconds=dif_time)
         return time_out_new, time_finish_out
 
-
 if __name__ == "__main__":
 
-    # Lista para los hash
     Msg_Hash = {}
-    # Rellenamos la lista
+
+    # puts all the fields available for the hash
     for i in range(0, pow(2, 16) + 1):
-        Msg_Hash.update({i: 'Disponible'})
+        Msg_Hash.update({i: 'Available'})
     msg_list = []
 
-    ##########################
-    ##RECEPCION DE DATOS TCP##
-    ##########################
+    #####################
+    ##TCP DATA RECEPTION#
+    #####################
     # Perpare the socket RX
-    sock_rx_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)  # SOCK_STREAM para tcp
+    sock_rx_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
     sock_rx_tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock_rx_tcp.bind(("", 4141)) # sap.DEF_PORT, 4141 puesto porque si
-    sock_rx_tcp.listen(5)  # conexiones en cola
+    sock_rx_tcp.bind(("", 4141)) # TODO poner puerto
+    sock_rx_tcp.listen(5)
     mreq = struct.pack("4sl", socket.inet_aton(sap.DEF_ADDR), socket.INADDR_ANY)
 
     inputs = [sock_rx_tcp]
+    # to know if there is a tcp client connected
     current_tcpclient = 0
-    message_queues = {}
 
-    #######################
-    ##TRANSMISOR DE DATOS##
-    #######################
+    ###################
+    ##DATA TRANSMITTE##
+    ###################
     ## Prepare the socket TX
     sock_tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock_tx.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, sap.DEF_TTL)
-    # Grab some info TX
     myaddr = socket.gethostbyname(socket.gethostname())
 
+
+    # begin of time
     beginning_time = datetime.datetime.now()
     time_out=8 # TODO hay que cambiarlo
-    outputs=[]
     while True:
 
+        # select will wake up when data enters or the time_out runs out
         readable, writable, exceptional = select.select(inputs, [], [], time_out)
         print "el time out es ", time_out
+
+        # calculation of times
         time_until_now = (datetime.datetime.now() - beginning_time).seconds #tiempo hasta ahora
         time_finish_out = datetime.datetime.now() + datetime.timedelta(seconds=time_until_now)
-        # Envio permite saber si el time_out ya ha acabado
+
+        # to know if the package will be sent
         send_packet = False
 
-        ## Si entran datos:
+        # if data enters
         if len(readable) != 0:
             if current_tcpclient == 0 and readable[0] == sock_rx_tcp:
 
-                # si sock_rx_tcp = peticion de conexion, en ese caso hago el acept
-
-                # Aceptaremos la conexion
                 connection_tcp, client_address_tcp = sock_rx_tcp.accept()
                 inputs.append(connection_tcp)
                 current_tcpclient = 1
                 print "conexion tcp", connection_tcp
-                # connection_tcp meter en lista inputs -> me vuelvo a la select
-                # si hay una conexion en curso no aceptar mas, le hago un close y la cierro
-                # si conexion tcp es legible me ha enviado info y tengo que recibirla
 
+            # if the data that comes in comes from the socket
             if connection_tcp in readable:
                 try:
-                    # RECOGIDA DE DATOS
+                    # reception of data
                     data = connection_tcp.recv(4096)
-                    #data = connection_tcp.recv(4096)
-                    #msg = sap.Message()
-                    # RECOGIDA DEL COMANDO
-
-
-                    #try:
-                        #msg.unpack(data)
-                    #except:
-                        #print "error"
-                    # mostramos los datos
-                    #print "Received SAP TCP:\n"
 
                     if data != '':
-                        # ret_value para saber si el comando es o no correcto y para saber si hay que recalcular el tiempo
+                        # to know if the command is correct or not and to know if you
+                        # have to recalculate the time
                         ret_value = tcp_handler(data)
-                        #ret_value = process_command(data)
+
                         if ret_value == 1:
-                            connection_tcp.send("Code: 200. OK ... de putifa")
+                            connection_tcp.send("Code: 200. OK ...")
                         else:
                             connection_tcp.send("Code: 400. Error ... command error")
 
@@ -337,24 +317,22 @@ if __name__ == "__main__":
                         current_tcpclient = 0
                         inputs.remove(connection_tcp)
 
-                    print datetime.datetime.now()
+                    print datetime.datetime.now() #todo borrar
 
+                    #
                     if ret_value == 1 and len(msg_list)!=0:
-                        # si ret_value es 1 hay que recalcular el tiempo anyadido en time_out
-                        # y cuando tenemos que enviar el tcp(time_finish_out)
+                        # to recalculate time out
                         time_out, time_finish_out = recalculate(time_out, time_finish_out)
 
-                    # si el tiempo actual es mas grande que el tiempo donde tenia que haber terminado se marca
-                    # para enviar el tcp, sino se recalcula el tiempo que falta(time_out)
+                    # If the current time is longer than time_finish it means that the
+                    # time_out is over and you must send the list.
+                    # Else the waiting time is recalculated.
                     if time_finish_out > datetime.datetime.now():
 
                         time_out = timeturn(time_finish_out, datetime.datetime.now())
-                        # si el time_out se ha pasado se enviara directamente
                     else:
                         send_packet = True
 
-
-                # todo mirar si esto va fuera
                 except socket.timeout, e:  # socket o sock_rx_tcp
 
                     err = e.args[0]
@@ -362,200 +340,24 @@ if __name__ == "__main__":
                         print 'recv timed out'
                         continue
                     else:
-                        print "er"
+                        pass
                         # sys.exit(1)
 
                     inputs = [sock_rx_tcp]
-                    outputs = []
-                    message_queues = {}
 
-
-            """for s in readable:
-                if s is sock_rx_tcp:
-    
-                    connection, client_address = s.accept()
-                    inputs.append(connection)
-                    message_queues[connection] = Queue.Queue()
-    
-                    # si el time_out no se ha pasado se continuara por donde deberia continuar
-                    if time_finish_out > datetime.datetime.now():
-    
-                        time_out = timeturn(time_finish_out, datetime.datetime.now())
-                        # si el time_out se ha pasado se enviara directamente
-                    else:
-                        send_info()
-    
-                else:
-                    data = s.recv(1024)
-                    print "3"
-                    if data:
-                        message_queues[s].put(data)
-                        print "4"
-                        if s not in outputs:
-                            outputs.append(s)
-                            print "5"
-                    else:
-                        print "6"
-                        if s in outputs:
-                            outputs.remove(s)
-                            print "7"
-                        inputs.remove(s) # TODO tcp close
-                        s.close()
-                        del message_queues[s]
-    
-                if time_finish_out > datetime.datetime.now():
-    
-                    time_out = timeturn(time_finish_out, datetime.datetime.now())
-                    # si el time_out se ha pasado se enviara directamente
-                else:
-                    send_info()
-                    enviar = "TODO funcion"
-                    """
-
-            """for s in writable:
-                try:
-                    # next_msg = message_queues[s].get_nowait()
-                    print "8"
-                except Queue.Empty:
-                    outputs.remove(s)
-                else:
-                    # s.send(next_msg)
-                    print "9"
-                if time_finish_out > datetime.datetime.now():
-    
-    
-                    time_out = timeturn(time_finish_out, datetime.datetime.now())
-                # si el time_out se ha pasado se enviara directamente
-                else:
-                    send_info()
-                    print "aqui"
-                    time_out=8"""
-
-
-            """for s in exceptional:
-                inputs.remove(s)
-                print "10"
-                if s in outputs:
-                    outputs.remove(s)
-                    print "9"
-                s.close()
-                del message_queues[s]
-                if time_finish_out > datetime.datetime.now():
-    
-                    time_out = timeturn(time_finish_out, datetime.datetime.now())
-                    # si el time_out se ha pasado se enviara directamente
-                else:
-                    send_info()"""
-        print "El tamanyo de lista es", len(msg_list)
+        print "El tamanyo de lista es", len(msg_list) #todo quitar
         # todo quitar el envio=True cuando se hagan pruebas reales
         send_packet = True
 
+        # if in select the timeout is over
         if not (readable or writable or exceptional) or send_packet==True:
             print "timeout agotado"
+
 
             if len(msg_list) != 0:
                 send_info()
                 time_out = recalculate()
 
             else:
-                print "No hay ningun paquete para enviar. \n"
-
-
-            """
-    # entrara cuando se acabe el timeout o entre un mensaje tcp (nueva conexion)
-            while inputs:
-                readable, writable, exceptional = select.select(
-                    inputs, outputs, inputs, 2)
-                print "444"
-    
-                # tiempo actual+timeout
-                time_finish_out = datetime.datetime.now() + datetime.timedelta(seconds=time_out) #ira fuera
-                print time_finish_out
-                print time_out
-    
-                #print inputs
-    
-                # si el time out acaba se enviara la info de las sesiones
-                if time_out == 8:
-                    print("holiwi")
-                    # Generate and send a message
-                    send_info()
-    
-    
-                for s in readable:
-                    if s is sock_rx_tcp:
-    
-                        connection, client_address = s.accept()
-                        connection.setblocking(0)
-                        inputs.append(connection)
-                        message_queues[connection] = Queue.Queue()
-                        print "2"
-    
-    
-                        # si el time_out no se ha pasado se continuara por donde deberia continuar
-                        if time_finish_out > datetime.datetime.now():
-                            send_info()
-    
-                            time_out = timeturn(time_finish_out, datetime.datetime.now())
-                            # si el time_out se ha pasado se enviara directamente
-                        else:
-    
-                            enviar="TODO funcion"
-                    else:
-                        data = s.recv(1024)
-                        print "3"
-                        if data:
-                            message_queues[s].put(data)
-                            print "4"
-                            if s not in outputs:
-                                outputs.append(s)
-                                print "5"
-                        else:
-                            print "6"
-                            if s in outputs:
-                                outputs.remove(s)
-                                print "7"
-                            inputs.remove(s)
-                            s.close()
-                            del message_queues[s]
-    
-                    if time_finish_out > datetime.datetime.now():
-                        send_info()
-                        time_out = timeturn(time_finish_out, datetime.datetime.now())
-                        # si el time_out se ha pasado se enviara directamente
-                    else:
-                        enviar = "TODO funcion"
-    
-                for s in writable:
-                    try:
-                        #next_msg = message_queues[s].get_nowait()
-                        print "8"
-                    except Queue.Empty:
-                        outputs.remove(s)
-                    else:
-                        #s.send(next_msg)
-                        print "9"
-                    if time_finish_out > datetime.datetime.now():
-                        send_info()
-    
-                        time_out = timeturn(time_finish_out, datetime.datetime.now())
-                    # si el time_out se ha pasado se enviara directamente
-                    else:
-    
-                        enviar = "TODO funcion"
-    
-                for s in exceptional:
-                    inputs.remove(s)
-                    print "10"
-                    if s in outputs:
-                        outputs.remove(s)
-                        print "9"
-                    s.close()
-                    del message_queues[s]
-                    if time_finish_out > datetime.datetime.now():
-                        send_info()
-                        time_out = timeturn(time_finish_out, datetime.datetime.now())
-                        # si el time_out se ha pasado se enviara directamente
-                    else:
-                        enviar = "TODO funcion
-                """
+                print "There is no package to send. \n"
+                pass

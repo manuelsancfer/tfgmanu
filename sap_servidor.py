@@ -304,13 +304,10 @@ if __name__ == "__main__":
                 inputs.append(connection_tcp)
                 current_tcpclient = 1
                 print "conexion tcp", connection_tcp
-                print "solo entra una veee"
                 # connection_tcp meter en lista inputs -> me vuelvo a la select
-
                 # si hay una conexion en curso no aceptar mas, le hago un close y la cierro
                 # si conexion tcp es legible me ha enviado info y tengo que recibirla
 
-            print "l writable sera", writable
             if connection_tcp in readable:
                 try:
                     # RECOGIDA DE DATOS
@@ -452,6 +449,7 @@ if __name__ == "__main__":
         print "El tamanyo de lista es", len(msg_list)
         # todo quitar el envio=True cuando se hagan pruebas reales
         send_packet = True
+
         if not (readable or writable or exceptional) or send_packet==True:
             print "timeout agotado"
 
